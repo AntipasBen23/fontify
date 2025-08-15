@@ -11,15 +11,11 @@ export interface DetectedFont {
 export class FontDetectionService {
   constructor(private readonly workspace = vscode.workspace) {}
 
-  async detectFonts(token?: vscode.CancellationToken): Promise<DetectedFont[]> {
+  async detectFonts(): Promise<DetectedFont[]> {
     const fonts: DetectedFont[] = [];
 
     fonts.push(...this.detectFromVSCodeSettings());
-    if (token?.isCancellationRequested) {
-      return [];
-    }
-
-    fonts.push(...(await this.detectFromFiles(token)));
+    fonts.push(...(await this.detectFromFiles()));
 
     return this.deduplicate(fonts);
   }
@@ -28,9 +24,7 @@ export class FontDetectionService {
     const fontFamily = this.workspace
       .getConfiguration('editor')
       .get<string>('fontFamily');
-    if (!fontFamily) {
-      return [];
-    }
+    if (!fontFamily) return [];
 
     return this.parseFontFamily(fontFamily).map(name => ({
       name,
@@ -38,52 +32,32 @@ export class FontDetectionService {
     }));
   }
 
-  private async detectFromFiles(
-    token?: vscode.CancellationToken
-  ): Promise<DetectedFont[]> {
+  private async detectFromFiles(): Promise<DetectedFont[]> {
     const fonts: DetectedFont[] = [];
 
     try {
-      // CSS files
       const cssFiles = await this.workspace.findFiles(
         '**/*.{css,scss}',
         '**/{node_modules,dist,build}/**'
       );
 
       for (const file of cssFiles.slice(0, 20)) {
-        // Limit for performance
-        if (token?.isCancellationRequested) {
-          break;
-        }
-
         const content = await fs.readFile(file.fsPath, 'utf8');
-        const cssMatch = content.match(/font-family\s*:\s*([^;]+)/gi);
+        const fontNames = this.extractAllFontsFromCSS(content);
 
-        if (cssMatch) {
-          cssMatch.forEach(match => {
-            const fontNames = this.parseFontFamily(
-              match.replace(/font-family\s*:\s*/i, '')
-            );
-            fonts.push(
-              ...fontNames.map(name => ({
-                name,
-                source: 'css' as const,
-                filePath: file.fsPath,
-              }))
-            );
-          });
-        }
+        fonts.push(
+          ...fontNames.map(name => ({
+            name,
+            source: 'css' as const,
+            filePath: file.fsPath,
+          }))
+        );
       }
 
-      // Tailwind config
       const tailwindFiles = await this.workspace.findFiles(
         'tailwind.config.{js,ts}'
       );
       for (const file of tailwindFiles) {
-        if (token?.isCancellationRequested) {
-          break;
-        }
-
         const content = await fs.readFile(file.fsPath, 'utf8');
         const fontMatch = content.match(
           /fontFamily\s*:\s*\{[^}]*['"`]([^'"`]+)['"`]\s*:\s*\[([^\]]+)\]/g
@@ -106,16 +80,11 @@ export class FontDetectionService {
         }
       }
 
-      // Package.json
       const packageFiles = await this.workspace.findFiles(
         '**/package.json',
         '**/node_modules/**'
       );
       for (const file of packageFiles) {
-        if (token?.isCancellationRequested) {
-          break;
-        }
-
         const content = await fs.readFile(file.fsPath, 'utf8');
         const pkg = JSON.parse(content);
         const deps = { ...pkg.dependencies, ...pkg.devDependencies };
@@ -137,6 +106,29 @@ export class FontDetectionService {
     }
 
     return fonts;
+  }
+
+  private extractAllFontsFromCSS(content: string): string[] {
+    const fonts = new Set<string>();
+
+    const cleanContent = content
+      .replace(/\u0000/g, '')
+      .replace(/[\u0001-\u001F]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const fontFamilyPattern = /font-family\s*:\s*([^;}]+)/gi;
+
+    let match;
+    while ((match = fontFamilyPattern.exec(cleanContent)) !== null) {
+      const fontValue = match[1].trim();
+      if (fontValue) {
+        const parsedFonts = this.parseFontFamily(fontValue);
+        parsedFonts.forEach(font => fonts.add(font));
+      }
+    }
+
+    return Array.from(fonts);
   }
 
   private parseFontFamily(fontFamily: string): string[] {
