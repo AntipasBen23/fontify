@@ -200,7 +200,7 @@ Press `F5` in VS Code to start debugging the extension.
 
 ## License
 
-MIT License - feel free to use Fontify in personal and commercial projects.
+MIT
 
 ## Acknowledgments
 
