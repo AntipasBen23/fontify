@@ -15,7 +15,9 @@ export class FontDetectionService {
     const fonts: DetectedFont[] = [];
 
     fonts.push(...this.detectFromVSCodeSettings());
-    if (token?.isCancellationRequested) {return [];}
+    if (token?.isCancellationRequested) {
+      return [];
+    }
 
     fonts.push(...(await this.detectFromFiles(token)));
 
@@ -26,7 +28,9 @@ export class FontDetectionService {
     const fontFamily = this.workspace
       .getConfiguration('editor')
       .get<string>('fontFamily');
-    if (!fontFamily) {return [];}
+    if (!fontFamily) {
+      return [];
+    }
 
     return this.parseFontFamily(fontFamily).map(name => ({
       name,
@@ -48,7 +52,9 @@ export class FontDetectionService {
 
       for (const file of cssFiles.slice(0, 20)) {
         // Limit for performance
-        if (token?.isCancellationRequested) {break;}
+        if (token?.isCancellationRequested) {
+          break;
+        }
 
         const content = await fs.readFile(file.fsPath, 'utf8');
         const cssMatch = content.match(/font-family\s*:\s*([^;]+)/gi);
@@ -74,7 +80,9 @@ export class FontDetectionService {
         'tailwind.config.{js,ts}'
       );
       for (const file of tailwindFiles) {
-        if (token?.isCancellationRequested) {break;}
+        if (token?.isCancellationRequested) {
+          break;
+        }
 
         const content = await fs.readFile(file.fsPath, 'utf8');
         const fontMatch = content.match(
@@ -104,7 +112,9 @@ export class FontDetectionService {
         '**/node_modules/**'
       );
       for (const file of packageFiles) {
-        if (token?.isCancellationRequested) {break;}
+        if (token?.isCancellationRequested) {
+          break;
+        }
 
         const content = await fs.readFile(file.fsPath, 'utf8');
         const pkg = JSON.parse(content);
