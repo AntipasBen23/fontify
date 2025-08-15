@@ -15,12 +15,16 @@ export function activate(context: vscode.ExtensionContext) {
     }),
 
     vscode.commands.registerCommand('fontify.makeProductionReady', () => {
-      vscode.window.showInformationMessage('Making production-ready... (Coming soon!)');
+      vscode.window.showInformationMessage(
+        'Making production-ready... (Coming soon!)'
+      );
     }),
 
     vscode.commands.registerCommand('fontify.refreshCache', () => {
-      vscode.window.showInformationMessage('Refreshing font cache... (Coming soon!)');
-    })
+      vscode.window.showInformationMessage(
+        'Refreshing font cache... (Coming soon!)'
+      );
+    }),
   ];
 
   // Add all disposables to context
