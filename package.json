@@ -91,7 +91,7 @@
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
     "type-check": "tsc --noEmit",
-    "package": "@vscode/vsce package",
+    "package": "vsce package",
     "pretest": "npm run build && npm run lint",
     "watch": "webpack --mode development --watch"
   },
