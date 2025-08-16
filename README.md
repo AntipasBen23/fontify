@@ -1,8 +1,8 @@
 # Fontify
 
-**Automatically detect and setup Google Fonts in your VS Code projects with zero configuration.**
+**Find Google Fonts in your code and set them up automatically - choose how you want to use them in development and production.**
 
-Fontify streamlines your development workflow by intelligently scanning your project for Google Font usage and generating production-ready font integration code. Say goodbye to manual Google Fonts setup and copy-pasting CDN links.
+Fontify streamlines your development workflow by scanning your project for Google Font usage and generating complete font integration code. No more broken fonts during development or manual Google Fonts setup - your Figma designs will look exactly the same in your local server and production.
 
 ## Features
 
@@ -19,7 +19,7 @@ Fontify streamlines your development workflow by intelligently scanning your pro
 - **Existing directory detection**: Scans for existing `public/`, `assets/`, or `src/assets/` folders
 - **Custom setup support**: Full flexibility for unique project structures
 
-### Automated Production Setup
+### Automated Font Setup
 - **CDN integration**: Generate Google Fonts CDN links with optimal loading
 - **Self-hosted fonts**: Download and bundle fonts for your project with framework-specific paths
 - **Framework-specific integration**: Next.js localFont setup, React CSS modules, Vue composables
@@ -39,7 +39,7 @@ Fontify streamlines your development workflow by intelligently scanning your pro
 | Command | Description |
 |---------|-------------|
 | `Fontify: Detect Fonts` | Scan project and validate fonts against Google Fonts |
-| `Fontify: Make Production-Ready` | Generate production font integration code with framework detection |
+| `Fontify: Make Production-Ready` | Generate font integration code with framework detection |
 | `Fontify: Refresh Font Cache` | Re-scan project for font changes |
 
 ## Configuration
@@ -100,38 +100,55 @@ export const inter = localFont({
 
 **Integration**: Standard CSS @font-face rules and utility classes
 
-## Use Cases
+## Complete Workflow
 
-### **Development Workflow**
-```css
-/* Your CSS */
-.heading { font-family: 'Inter', sans-serif; }
-.body { font-family: 'Roboto', sans-serif; }
-```
+1. **Finds** all Google Fonts you're using in your project
+2. **Analyzes** your framework and project structure automatically
+3. **Checks** if those fonts actually exist on Google Fonts
+4. **Asks you** how you want to use them - download files, use Google's servers, or both
+5. **Creates the code** - either font files for your project OR links to Google's servers OR both options
+6. **Gives you instructions** on exactly how to use them in your specific framework
 
-1. Fontify detects Inter and Roboto usage
-2. Auto-detects your framework (Next.js, React, Vue, etc.)
-3. Suggests appropriate output directory
-4. Generates framework-specific integration code
+## Three Font Hosting Options
 
-### **Production Deployment**
-Choose your deployment strategy:
-
-**Self-Hosted** (Recommended)
+### **Self-Hosted** (Download to your project)
 - Downloads font files to framework-appropriate directories
 - Generates CSS @font-face rules with correct paths
 - Creates framework-specific integration code
-- Works offline, GDPR compliant, better performance
+- **Benefits**: Works everywhere instantly, offline-ready, faster loading, GDPR compliant
 
-**CDN Integration**
+### **CDN** (Use Google's servers)
 - Generates Google Fonts `<link>` tags
 - Includes preload optimization
-- Quick setup, smaller bundle, requires internet
+- **Benefits**: Quick setup, smaller project size, fonts load from Google
 
-**Hybrid Approach**
-- Provides both self-hosted and CDN options
+### **Both** (Get both options)
+- Provides both self-hosted files AND CDN links
 - Maximum flexibility for different environments
-- Use CDN for development, self-hosted for production
+- **Benefits**: Use CDN for development, self-hosted for production
+
+## Use Cases
+
+### **Design to Development**
+```css
+/* You see 'Inter' in your Figma design */
+/* You write this CSS */
+.heading { font-family: 'Inter', sans-serif; }
+```
+
+**Instead of manually:**
+- Seeing a font in Figma
+- Going to Google Fonts website to find it
+- Copying links one by one
+- Writing CSS code yourself
+- Fonts not showing up in local development
+
+**Fontify does it all:**
+1. Detects Inter usage automatically
+2. Auto-detects your framework (Next.js, React, Vue, etc.)
+3. Suggests appropriate output directory
+4. Generates framework-specific integration code
+5. **Big win**: Your Figma designs look exactly the same in local development and production!
 
 ## Generated Files Structure
 
@@ -182,32 +199,28 @@ src/assets/fonts/
 - **Fontsource**: NPM-hosted Google Fonts detection
 - **Custom fonts**: Coming after MVP release - upload and manage your own fonts
 
-## Complete Workflow
-
-1. **Detect** → Scans your project for Google Font usage
-2. **Analyze** → Auto-detects your framework and project structure
-3. **Validate** → Checks font availability on Google Fonts
-4. **Configure** → Suggests framework-appropriate settings
-5. **Generate** → Creates production-ready integration code
-6. **Integrate** → Places code in correct directories with usage guide
-
 ## Why Fontify?
 
 ### Before Fontify
+- See font in Figma design
 - Manually browse Google Fonts website
 - Copy/paste CDN links for each font
 - Create @font-face CSS rules manually
 - Figure out correct directory structure for each framework
 - Write framework-specific font loading code
-- Inconsistent font loading strategies across projects
+- Fonts don't work in local development
+- Inconsistent font loading between development and production
 
 ### With Fontify
 - Automatic font detection across your project
 - Smart framework detection and configuration
 - Framework-appropriate directory placement
-- Production bundles with optimal loading
-- Framework-specific integration code generation
+- Complete integration code generation
+- Fonts work immediately in local development
+- Perfect consistency from design to production
 - Complete setup in seconds with best practices
+
+**The Big Win:** No more broken fonts during development! Your designs work everywhere instantly. 🎯
 
 ## Technical Details
 
@@ -303,4 +316,4 @@ MIT
 
 **Made with love for developers who care about typography**
 
-*Fontify automatically handles the complexity of font management so you can focus on building great products.*
+*Fontify eliminates the gap between design and development - your fonts work everywhere, instantly.*
