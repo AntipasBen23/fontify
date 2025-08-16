@@ -1,26 +1,22 @@
 import * as vscode from 'vscode';
 import { FontDetectionService, DetectedFont } from './services/fontDetection';
-import { FontInstallerService } from './services/fontInstaller';
 import { ProductionBundlerService } from './services/productionBundler';
+import { GoogleFontsService } from './services/googleFontsService';
 
 let fontService: FontDetectionService;
-let installerService: FontInstallerService;
 let bundlerService: ProductionBundlerService;
+let googleFontsService: GoogleFontsService;
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('Fontify extension is now active!');
 
   fontService = new FontDetectionService();
-  installerService = new FontInstallerService();
   bundlerService = new ProductionBundlerService();
+  googleFontsService = new GoogleFontsService();
 
   const disposables = [
     vscode.commands.registerCommand('fontify.detectFonts', async () => {
       await detectFontsCommand();
-    }),
-
-    vscode.commands.registerCommand('fontify.installFont', async () => {
-      await installFontCommand();
     }),
 
     vscode.commands.registerCommand('fontify.makeProductionReady', async () => {
@@ -53,7 +49,15 @@ async function detectFontsCommand() {
       return;
     }
 
-    const bySource = fonts.reduce(
+    const validatedFonts = fonts.map(font => ({
+      ...font,
+      available: true,
+    }));
+
+    const availableFonts = validatedFonts.filter(f => f.available);
+    const unavailableFonts = validatedFonts.filter(f => !f.available);
+
+    const bySource = availableFonts.reduce(
       (acc, font) => {
         if (!acc[font.source]) {
           acc[font.source] = [];
@@ -68,21 +72,21 @@ async function detectFontsCommand() {
       .map(([source, fonts]) => `${source}: ${fonts.length}`)
       .join(', ');
 
-    const message = `🎨 Found ${fonts.length} fonts (${summary})`;
+    let message = `🎨 Found ${availableFonts.length} fonts (${summary})`;
+    if (unavailableFonts.length > 0) {
+      message += ` • ${unavailableFonts.length} not available`;
+    }
 
     const action = await vscode.window.showInformationMessage(
       message,
       'View Details',
-      'Install Missing',
       'Make Production-Ready'
     );
 
     if (action === 'View Details') {
-      showFontDetails(fonts);
-    } else if (action === 'Install Missing') {
-      await installMissingFonts(fonts);
+      showFontDetails(validatedFonts);
     } else if (action === 'Make Production-Ready') {
-      await makeProductionReadyFonts(fonts);
+      await makeProductionReadyFonts(availableFonts);
     }
   } catch (error) {
     console.error('Font detection failed:', error);
@@ -90,111 +94,6 @@ async function detectFontsCommand() {
       'Failed to detect fonts. Check output for details.'
     );
   }
-}
-
-async function installFontCommand() {
-  const fontName = await vscode.window.showInputBox({
-    prompt: 'Enter font name to install',
-    placeHolder: 'e.g., Inter, Roboto, Poppins',
-  });
-
-  if (!fontName) return;
-
-  try {
-    vscode.window.showInformationMessage(`🔄 Installing "${fontName}"...`);
-
-    const result = await installerService.installFont(fontName);
-
-    if (result.success) {
-      const message = `✅ Successfully installed "${result.fontName}" from ${result.source}`;
-      const reloadMessage = result.requiresReload
-        ? ' Click "Reload Window" to activate the font.'
-        : '';
-
-      if (result.requiresReload) {
-        const action = await vscode.window.showInformationMessage(
-          message + reloadMessage,
-          'Reload Window'
-        );
-
-        if (action === 'Reload Window') {
-          vscode.commands.executeCommand('workbench.action.reloadWindow');
-        }
-      } else {
-        vscode.window.showInformationMessage(message);
-      }
-    } else {
-      vscode.window.showErrorMessage(
-        `❌ Failed to install "${result.fontName}": ${result.error}`
-      );
-    }
-  } catch (error) {
-    console.error('Font installation failed:', error);
-    vscode.window.showErrorMessage(
-      'Font installation failed. Check output for details.'
-    );
-  }
-}
-
-async function installMissingFonts(fonts: DetectedFont[]) {
-  const missingFonts = fonts.filter(font => font.isInstalled !== true);
-
-  if (missingFonts.length === 0) {
-    vscode.window.showInformationMessage('✅ All fonts are already available');
-    return;
-  }
-
-  const confirm = await vscode.window.showInformationMessage(
-    `Install ${missingFonts.length} missing fonts?`,
-    'Yes, Install All',
-    'Cancel'
-  );
-
-  if (confirm !== 'Yes, Install All') return;
-
-  await vscode.window.withProgress(
-    {
-      location: vscode.ProgressLocation.Notification,
-      title: 'Installing fonts...',
-      cancellable: false,
-    },
-    async progress => {
-      const results = await installerService.showInstallProgress(
-        missingFonts,
-        (current, total, fontName) => {
-          progress.report({
-            increment: 100 / total,
-            message: `Installing ${fontName} (${current}/${total})`,
-          });
-        }
-      );
-
-      const successful = results.filter(r => r.success);
-      const failed = results.filter(r => !r.success);
-
-      let message = '';
-      if (successful.length > 0) {
-        message += `✅ Installed ${successful.length} fonts successfully`;
-      }
-      if (failed.length > 0) {
-        message += ` ❌ Failed to install ${failed.length} fonts`;
-      }
-
-      const requiresReload = results.some(r => r.requiresReload);
-      if (requiresReload) {
-        const action = await vscode.window.showInformationMessage(
-          message + '. Reload VS Code to activate fonts.',
-          'Reload Window'
-        );
-
-        if (action === 'Reload Window') {
-          vscode.commands.executeCommand('workbench.action.reloadWindow');
-        }
-      } else {
-        vscode.window.showInformationMessage(message);
-      }
-    }
-  );
 }
 
 async function makeProductionReadyCommand() {
@@ -207,79 +106,24 @@ async function makeProductionReadyCommand() {
     return;
   }
 
-  await makeProductionReadyFonts(fonts);
+  const validatedFonts = fonts.map(font => ({ ...font, available: true }));
+  const availableFonts = validatedFonts.filter(f => f.available);
+
+  if (availableFonts.length === 0) {
+    vscode.window.showInformationMessage('No fonts found in your project.');
+    return;
+  }
+
+  await makeProductionReadyFonts(availableFonts);
 }
 
 async function makeProductionReadyFonts(fonts: DetectedFont[]) {
-  // Get user preferences
-  const strategy = await vscode.window.showQuickPick(
-    [
-      {
-        label: 'Self-hosted',
-        value: 'self-hosted',
-        description: 'Download fonts and host them yourself (recommended)',
-      },
-      { label: 'CDN', value: 'cdn', description: 'Use Google Fonts CDN links' },
-      {
-        label: 'Both',
-        value: 'both',
-        description: 'Generate both self-hosted and CDN options',
-      },
-    ],
-    {
-      placeHolder: 'Choose font hosting strategy',
-    }
-  );
-
+  const strategy = await bundlerService.selectHostingStrategy();
   if (!strategy) return;
 
-  const framework = await vscode.window.showQuickPick(
-    [
-      {
-        label: 'Vanilla CSS',
-        value: 'vanilla',
-        description: 'Standard CSS @font-face rules',
-      },
-      {
-        label: 'Next.js',
-        value: 'nextjs',
-        description: 'Generate Next.js font configuration',
-      },
-      { label: 'React', value: 'react', description: 'React-compatible CSS' },
-      { label: 'Vue', value: 'vue', description: 'Vue-compatible CSS' },
-    ],
-    {
-      placeHolder: 'Choose your framework',
-    }
-  );
+  const frameworkSelection = await bundlerService.selectFrameworkAndDirectory();
+  if (!frameworkSelection) return;
 
-  if (!framework) return;
-
-  const outputDir = await vscode.window.showInputBox({
-    prompt: 'Output directory (relative to workspace root)',
-    value: 'public/fonts',
-    placeHolder: 'public/fonts',
-  });
-
-  if (!outputDir) return;
-
-  const includePreload = await vscode.window.showQuickPick(
-    [
-      {
-        label: 'Yes',
-        value: true,
-        description: 'Include preload tags for better performance',
-      },
-      { label: 'No', value: false, description: 'Skip preload tags' },
-    ],
-    {
-      placeHolder: 'Include preload tags for performance?',
-    }
-  );
-
-  if (includePreload === undefined) return;
-
-  // Bundle the fonts
   await vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
@@ -288,14 +132,12 @@ async function makeProductionReadyFonts(fonts: DetectedFont[]) {
     },
     async progress => {
       try {
-        const bundles = await bundlerService.bundleMultipleFonts(
+        await bundlerService.bundleMultipleFonts(
           fonts,
           {
-            strategy: strategy.value as any,
-            variants: ['regular', '500', '600', '700'],
-            outputDir,
-            framework: framework.value as any,
-            includePreload: includePreload.value,
+            strategy,
+            outputDir: frameworkSelection.outputDir,
+            framework: frameworkSelection.framework as any,
           },
           (current, total, fontName) => {
             progress.report({
@@ -305,45 +147,37 @@ async function makeProductionReadyFonts(fonts: DetectedFont[]) {
           }
         );
 
-        // Generate integration guide
-        const summaryFile = await bundlerService.generateProjectSummary(
-          bundles,
-          {
-            strategy: strategy.value as any,
-            variants: ['regular', '500', '600', '700'],
-            outputDir,
-            framework: framework.value as any,
-            includePreload: includePreload.value,
-          }
+        const action = await vscode.window.showInformationMessage(
+          `✅ Successfully prepared ${fonts.length} fonts for production! Generated files in ${frameworkSelection.outputDir}/`,
+          'View Integration Guide',
+          'Open Folder'
         );
 
-        const successful = bundles.filter(b => b.files.fontFiles.length > 0);
-
-        if (successful.length > 0) {
-          const action = await vscode.window.showInformationMessage(
-            `✅ Successfully prepared ${successful.length} fonts for production! Generated files in ${outputDir}/`,
-            'View Integration Guide',
-            'Open Folder'
-          );
-
-          if (action === 'View Integration Guide') {
-            const doc = await vscode.workspace.openTextDocument(summaryFile);
+        if (action === 'View Integration Guide') {
+          const workspaceRoot =
+            vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+          if (workspaceRoot) {
+            const guidePath = require('path').join(
+              workspaceRoot,
+              frameworkSelection.outputDir,
+              'FONT_GUIDE.md'
+            );
+            const doc = await vscode.workspace.openTextDocument(guidePath);
             vscode.window.showTextDocument(doc);
-          } else if (action === 'Open Folder') {
-            const workspaceRoot =
-              vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-            if (workspaceRoot) {
-              const outputPath = require('path').join(workspaceRoot, outputDir);
-              vscode.commands.executeCommand(
-                'revealFileInOS',
-                vscode.Uri.file(outputPath)
-              );
-            }
           }
-        } else {
-          vscode.window.showErrorMessage(
-            '❌ Failed to prepare fonts for production. Check output for details.'
-          );
+        } else if (action === 'Open Folder') {
+          const workspaceRoot =
+            vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+          if (workspaceRoot) {
+            const outputPath = require('path').join(
+              workspaceRoot,
+              frameworkSelection.outputDir
+            );
+            vscode.commands.executeCommand(
+              'revealFileInOS',
+              vscode.Uri.file(outputPath)
+            );
+          }
         }
       } catch (error) {
         console.error('Production bundling failed:', error);
@@ -355,7 +189,7 @@ async function makeProductionReadyFonts(fonts: DetectedFont[]) {
   );
 }
 
-function showFontDetails(fonts: DetectedFont[]) {
+function showFontDetails(fonts: (DetectedFont & { available?: boolean })[]) {
   const content = [
     '# Detected Fonts\n',
     ...Object.entries(
@@ -367,18 +201,14 @@ function showFontDetails(fonts: DetectedFont[]) {
           acc[font.source].push(font);
           return acc;
         },
-        {} as Record<string, DetectedFont[]>
+        {} as Record<string, typeof fonts>
       )
     )
       .map(([source, fonts]) => [
         `## ${source.toUpperCase()}\n`,
         ...fonts.map(
           font =>
-            `- **${font.name}**${font.filePath ? ` (${font.filePath})` : ''}${
-              font.isInstalled !== undefined
-                ? ` - ${font.isInstalled ? '✅ Installed' : '❌ Not installed'}`
-                : ''
-            }`
+            `- **${font.name}**${font.filePath ? ` (${font.filePath})` : ''} - ✅ Available`
         ),
         '',
       ])

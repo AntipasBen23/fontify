@@ -1,4 +1,3 @@
-import fetch from 'node-fetch';
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import * as os from 'os';
@@ -18,7 +17,7 @@ export interface FontFile {
 }
 
 export class GoogleFontsService {
-  private static readonly API_KEY = 'AIzaSyBB9Q-XaRyE_8mKD8j6i8W5QWc8kHq5Nqo'; // Free public key
+  private static readonly API_KEY = 'AIzaSyBB9Q-XaRyE_8mKD8j6i8W5QWc8kHq5Nqo';
   private static readonly API_URL =
     'https://www.googleapis.com/webfonts/v1/webfonts';
   private static readonly CSS_URL = 'https://fonts.googleapis.com/css2';
@@ -42,6 +41,7 @@ export class GoogleFontsService {
     }
 
     try {
+      const fetch = (await import('node-fetch')).default;
       const response = await fetch(
         `${GoogleFontsService.API_URL}?key=${GoogleFontsService.API_KEY}&sort=popularity`
       );
@@ -62,11 +62,10 @@ export class GoogleFontsService {
     const fontFiles: FontFile[] = [];
 
     try {
-      // Build Google Fonts CSS URL
+      const fetch = (await import('node-fetch')).default;
       const familyParam = `family=${encodeURIComponent(fontFamily)}:wght@${variants.map(v => (v === 'regular' ? '400' : v)).join(';')}`;
       const cssUrl = `${GoogleFontsService.CSS_URL}?${familyParam}&display=swap`;
 
-      // Fetch CSS with woff2 user agent
       const response = await fetch(cssUrl, {
         headers: {
           'User-Agent':
@@ -76,7 +75,6 @@ export class GoogleFontsService {
 
       const cssContent = await response.text();
 
-      // Extract font URLs from CSS
       const fontFaceRegex = /@font-face\s*\{[^}]*\}/g;
       const urlRegex = /url\(([^)]+)\)/;
       const fontFamilyRegex = /font-family:\s*['"]([^'"]+)['"]/;
@@ -96,7 +94,6 @@ export class GoogleFontsService {
           const weight = weightMatch ? weightMatch[1] : '400';
           const variant = weight === '400' ? 'regular' : weight;
 
-          // Determine format from URL
           let format: 'woff2' | 'woff' | 'ttf' = 'woff2';
           if (url.includes('.woff2')) format = 'woff2';
           else if (url.includes('.woff')) format = 'woff';
@@ -122,6 +119,7 @@ export class GoogleFontsService {
     outputDir: string
   ): Promise<string | null> {
     try {
+      const fetch = (await import('node-fetch')).default;
       const response = await fetch(fontFile.url);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -129,15 +127,12 @@ export class GoogleFontsService {
 
       const buffer = await response.buffer();
 
-      // Generate filename
       const familyName = fontFile.family.replace(/\s+/g, '-');
       const filename = `${familyName}-${fontFile.variant}.${fontFile.format}`;
       const filePath = path.join(outputDir, filename);
 
-      // Ensure directory exists
       await fs.ensureDir(outputDir);
 
-      // Write font file
       await fs.writeFile(filePath, buffer);
 
       return filePath;
@@ -152,7 +147,6 @@ export class GoogleFontsService {
     variants: string[] = ['regular']
   ): Promise<{ success: boolean; installedFiles: string[]; error?: string }> {
     try {
-      // Check if font exists on Google Fonts
       const googleFont = await this.searchFont(fontFamily);
       if (!googleFont) {
         return {
@@ -162,7 +156,6 @@ export class GoogleFontsService {
         };
       }
 
-      // Get font files
       const fontFiles = await this.getFontFiles(fontFamily, variants);
       if (fontFiles.length === 0) {
         return {
@@ -172,10 +165,8 @@ export class GoogleFontsService {
         };
       }
 
-      // Determine user fonts directory
       const userFontsDir = this.getUserFontsDirectory();
 
-      // Download and install fonts
       const installedFiles: string[] = [];
 
       for (const fontFile of fontFiles) {
@@ -193,7 +184,6 @@ export class GoogleFontsService {
         };
       }
 
-      // Platform-specific post-installation
       await this.postInstallActions();
 
       return {
@@ -236,7 +226,6 @@ export class GoogleFontsService {
     const platform = os.platform();
 
     if (platform === 'linux') {
-      // Refresh font cache on Linux
       try {
         const { exec } = require('child_process');
         await new Promise<void>((resolve, reject) => {
@@ -258,7 +247,6 @@ export class GoogleFontsService {
       const googleFont = await this.searchFont(fontFamily);
       if (!googleFont) return null;
 
-      // Most Google Fonts use OFL license
       return 'Open Font License (OFL) - Free for commercial use';
     } catch (error) {
       console.error('Failed to get font license:', error);
